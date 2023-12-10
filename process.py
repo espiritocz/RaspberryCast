@@ -178,7 +178,7 @@ def playWithMPV(url, audio_only=True): # TODO: include video - perhaps just use 
     otherparams = ""
     ytdlformat = "best"
     if audio_only:
-        cmd = "mpv --no-video --ytdl-format={0} {1} '{2}'".format(ytdlformat, otherparams, url)
+        cmd = "mpv --no-video --ytdl-format={0} {1} '{2}'  < /tmp/cmd".format(ytdlformat, otherparams, url)
         os.system(cmd)
     else:
         logger.info("ERROR: trying to play video through MPV - not developed here")
