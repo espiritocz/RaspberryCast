@@ -5,27 +5,31 @@ import logging
 import json
 logger = logging.getLogger("RaspberryCast")
 volume = 0
-
+headless = True
+audio_only = True
 
 def launchvideo(url, config, sub=False):
     setState("2")
 
     os.system("echo -n q > /tmp/cmd &")  # Kill previous instance of OMX
 
-    if config["new_log"]:
-        os.system("sudo fbi -T 1 -a --noverbose images/processing.jpg")
+    if not headless:
+        if config["new_log"]:
+            os.system("sudo fbi -T 1 -a --noverbose images/processing.jpg")
 
     logger.info('Extracting source video URL...')
     out = return_full_url(url, sub=sub, slow_mode=config["slow_mode"])
 
     logger.debug("Full video URL fetched.")
-
-    thread = threading.Thread(target=playWithOMX, args=(out, sub,),
-            kwargs=dict(width=config["width"], height=config["height"],
-                        new_log=config["new_log"]))
-    thread.start()
-
-    os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
+    if audio_only:
+        thread = threading.Thread(target=playWithMPV, args=(out, True))
+        thread.start()
+    else:
+        thread = threading.Thread(target=playWithOMX, args=(out, sub,),
+                kwargs=dict(width=config["width"], height=config["height"],
+                            new_log=config["new_log"]))
+        thread.start()
+        os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
 
 
 def queuevideo(url, config, onlyqueue=False):
@@ -38,11 +42,15 @@ def queuevideo(url, config, onlyqueue=False):
     if getState() == "0" and not onlyqueue:
         logger.info('No video currently playing, playing video instead of \
 adding to queue.')
-        thread = threading.Thread(target=playWithOMX, args=(out, False,),
-            kwargs=dict(width=config["width"], height=config["height"],
-                        new_log=config["new_log"]))
-        thread.start()
-        os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
+        if audio_only:
+            thread = threading.Thread(target=playWithMPV, args=(out, True))
+            thread.start()
+        else:
+            thread = threading.Thread(target=playWithOMX, args=(out, False,),
+                kwargs=dict(width=config["width"], height=config["height"],
+                            new_log=config["new_log"]))
+            thread.start()
+            os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
     else:
         if out is not None:
             with open('video.queue', 'a') as f:
@@ -139,6 +147,71 @@ def playlistToQueue(url, config):
                 queuevideo(i['url'], config)
 
 
+def playWithMPV(url, audio_only=True): # TODO: include video - perhaps just use the playWithOMXPlayer function - add the resolution back etc.
+    logger.info("Starting MPV now.")
+    '''
+    logger.info("Attempting to read resolution from configuration file.")
+
+    resolution = ""
+
+    if width or height:
+        resolution = " --win '0 0 {0} {1}'".format(width, height)
+    '''
+    setState("1")
+    '''
+    if sub:
+        os.system(
+            "omxplayer -b -r -o both '" + url + "'" + resolution +
+            " --vol " + str(volume) +
+            " --subtitles subtitle.srt < /tmp/cmd"
+        )
+    elif url is None:
+        pass
+    else:
+        os.system(
+            "omxplayer -b -r -o both '" + url + "' " + resolution + " --vol " +
+            str(volume) + " < /tmp/cmd"
+        )
+    '''
+    # function for running MPV itself, thanks to ytfzf - TODO: to be checked
+    # mpv --no-video --ytdl-format="$ytdl_pref" $(eval echo "$url_handler_opts") "$@" ;;
+    otherparams = ""
+    ytdlformat = "best"
+    if audio_only:
+        cmd = "mpv --no-video --ytdl-format={0} {1} '{2}'".format(ytdlformat, otherparams, url)
+        os.system(cmd)
+    else:
+        logger.info("ERROR: trying to play video through MPV - not developed here")
+        return
+    if getState() != "2":  # In case we are again in the launchvideo function
+        setState("0")
+        with open('video.queue', 'r') as f:
+            # Check if there is videos in queue
+            first_line = f.readline().replace('\n', '')
+            if first_line != "":
+                logger.info("Starting next video in playlist.")
+                with open('video.queue', 'r') as fin:
+                    data = fin.read().splitlines(True)
+                with open('video.queue', 'w') as fout:
+                    fout.writelines(data[1:])
+                if audio_only:
+                    thread = threading.Thread(target=playWithMPV, args=(first_line, True))
+                    thread.start()
+                else:
+                    thread = threading.Thread(
+                        target=playWithOMX, args=(first_line, False,),
+                        kwargs=dict(width=width, height=height,
+                                    new_log=new_log),
+                    )
+                    thread.start()
+                    os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
+            else:
+                logger.info("Playlist empty, skipping.")
+                if not headless:
+                    if new_log:
+                        os.system("sudo fbi -T 1 -a --noverbose images/ready.jpg")
+
+
 def playWithOMX(url, sub, width="", height="", new_log=False):
     logger.info("Starting OMXPlayer now.")
 
@@ -175,17 +248,22 @@ def playWithOMX(url, sub, width="", height="", new_log=False):
                     data = fin.read().splitlines(True)
                 with open('video.queue', 'w') as fout:
                     fout.writelines(data[1:])
-                thread = threading.Thread(
-                    target=playWithOMX, args=(first_line, False,),
-                        kwargs=dict(width=width, height=height,
-                                    new_log=new_log),
-                )
-                thread.start()
-                os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
+                if audio_only:
+                    thread = threading.Thread(target=playWithMPV, args=(first_line, True))
+                    thread.start()
+                else:
+                    thread = threading.Thread(
+                        target=playWithOMX, args=(first_line, False,),
+                            kwargs=dict(width=width, height=height,
+                                        new_log=new_log),
+                    )
+                    thread.start()
+                    os.system("echo . > /tmp/cmd &")  # Start signal for OMXplayer
             else:
                 logger.info("Playlist empty, skipping.")
-                if new_log:
-                    os.system("sudo fbi -T 1 -a --noverbose images/ready.jpg")
+                if not headless:
+                    if new_log:
+                        os.system("sudo fbi -T 1 -a --noverbose images/ready.jpg")
 
 
 def setState(state):

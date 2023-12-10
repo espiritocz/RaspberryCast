@@ -2,6 +2,11 @@
 > Transform your Raspberry Pi into a streaming device.
 Cast videos from mobile devices or computers to your TV.
 
+# This particular modification
+Changing from omxplayer to mpv, as I have RPi 4B in 64 bit system (thus no omxplayer), and also I need only audio in my system.
+If this works ok, one could easily modify further to get also video..
+
+# Original README follows
 
 [![Android app on Google Play](https://developer.android.com/images/brand/en_app_rgb_wo_60.png)](https://play.google.com/store/apps/details?id=com.kiwiidev.raspberrycast)
 [![Extension for Chrome](https://developer.chrome.com/webstore/images/ChromeWebStore_BadgeWBorder_v2_206x58.png)](https://chrome.google.com/webstore/detail/raspberrycast/aikmhmnmlebhcjjdbjilohbpfljioeak)

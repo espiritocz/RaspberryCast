@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# avoiding fbi
+headless = True
+audio_only = True
+
 import logging
 import os
 import sys
@@ -48,8 +52,10 @@ except OSError as e:
     if e.errno != 17:
         raise
 
-if config["new_log"]:
-    os.system("sudo fbi -T 1 --noverbose -a  images/ready.jpg")
+# headless
+if not headless:
+    if config["new_log"]:
+        os.system("sudo fbi -T 1 --noverbose -a  images/ready.jpg")
 
 setState("0")
 open('video.queue', 'w').close()  # Reset queue
@@ -97,31 +103,31 @@ def stream():
             logger.debug('''URL contains localhost adress. \
 Replacing with remote ip : ''' + ip)
             url = url.replace('localhost', ip).replace('127.0.0.1', ip)
+        if not audio_only:
+            if 'subtitles' in request.query:
+                subtitles = request.query['subtitles']
 
-        if 'subtitles' in request.query:
-            subtitles = request.query['subtitles']
+                if ('localhost' in subtitles) or ('127.0.0.1' in subtitles):
+                                ip = request.environ['REMOTE_ADDR']
+                                logger.debug(
+                                    '''Subtitle path contains localhost adress.
+    Replacing with remote IP.''')
+                                subtitles = subtitles\
+                                    .replace('localhost', ip)\
+                                    .replace('127.0.0.1', ip)
 
-            if ('localhost' in subtitles) or ('127.0.0.1' in subtitles):
-                            ip = request.environ['REMOTE_ADDR']
-                            logger.debug(
-                                '''Subtitle path contains localhost adress.
-Replacing with remote IP.''')
-                            subtitles = subtitles\
-                                .replace('localhost', ip)\
-                                .replace('127.0.0.1', ip)
-
-            logger.debug('Subtitles link is '+subtitles)
-            urlretrieve(subtitles, "subtitle.srt")
-            launchvideo(url, config, sub=True)
-        else:
-            logger.debug('No subtitles for this stream')
-            if (
-                    ("youtu" in url and "list=" in url) or
-                    ("soundcloud" in url and "/sets/" in url)):
-                playlist(url, True, config)
+                logger.debug('Subtitles link is '+subtitles)
+                urlretrieve(subtitles, "subtitle.srt")
+                launchvideo(url, config, sub=True)
             else:
-                launchvideo(url, config, sub=False)
-            return "1"
+                logger.debug('No subtitles for this stream')
+                if (
+                        ("youtu" in url and "list=" in url) or
+                        ("soundcloud" in url and "/sets/" in url)):
+                    playlist(url, True, config)
+                else:
+                    launchvideo(url, config, sub=False)
+                return "1"
     except Exception as e:
         logger.error(
             'Error in launchvideo function or during downlading the subtitles')
@@ -218,7 +224,7 @@ def shutdown():
     else:
         try:
             time = int(time)
-            if (time < 400 and time >= 0):
+            if (time < 400 and time >= 0): # TODO: isnt time in seconds??
                 shutdown_command = "shutdown -h +" + str(time) + " &"
                 os.system(shutdown_command)
                 logger.info("Shutdown should be successfully programmed")

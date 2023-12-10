@@ -27,10 +27,10 @@ elif [ $1 = "stop" ] ; then
 		exit 0
 	fi
 	echo "Killing RaspberryCast..."
-	killall omxplayer.bin >/dev/null 2>&1
-	killall python >/dev/null 2>&1
+	#killall omxplayer.bin >/dev/null 2>&1
+	killall python >/dev/null 2>&1  # might be problem!?
 	kill $(lsof -t -i :2020) >/dev/null 2>&1
-	rm *.srt >/dev/null 2>&1
+	#rm *.srt >/dev/null 2>&1
 	echo "Done."
 	exit
 else
